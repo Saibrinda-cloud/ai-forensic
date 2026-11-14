@@ -1,0 +1,1574 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Forensic Investigation Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+            --text: #374151;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* HEADER */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-section h1 {
+            font-size: 32px;
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .logo-section p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--light);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background: var(--success);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* MAIN GRID */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .menu-section {
+            margin-bottom: 20px;
+        }
+
+        .menu-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .menu-btn {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            background: var(--light);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+            transition: all 0.3s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .menu-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary-dark);
+        }
+
+        .menu-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* CONTENT AREA */
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        /* PANEL STYLES */
+        .panel {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--light);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .panel-subtitle {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #db2777;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        /* FORMS */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* TABLES */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background: var(--light);
+            border-bottom: 2px solid var(--border);
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: rgba(99, 102, 241, 0.03);
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-info {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+        }
+
+        /* STATISTICS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card.alt-1 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.alt-2 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.alt-3 {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        /* TIMELINE */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline-item {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 24px;
+            width: 2px;
+            height: calc(100% + 20px);
+            background: var(--border);
+        }
+
+        .timeline-item:last-child::after {
+            display: none;
+        }
+
+        .timeline-item.suspicious::before {
+            background: var(--danger);
+            box-shadow: 0 0 0 2px var(--danger);
+        }
+
+        .timeline-content {
+            background: var(--light);
+            padding: 12px 16px;
+            border-radius: 6px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .timeline-content.suspicious {
+            border-left-color: var(--danger);
+        }
+
+        .timeline-time {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 13px;
+        }
+
+        .timeline-text {
+            margin-top: 4px;
+            font-size: 14px;
+        }
+
+        /* COMPARISON CHART */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .comparison-card {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .comparison-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .comparison-card h3 {
+            color: var(--primary);
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* LOADING STATE */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ALERTS */
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                padding: 20px;
+            }
+
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .logo-section h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="header-content">
+                <div class="logo-section">
+                    <h1>
+                        <div class="logo-icon">🔍</div>
+                        Digital Forensic Assistant
+                    </h1>
+                    <p>AI-Powered Evidence Investigation System</p>
+                </div>
+                <div class="status-badge">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="statusText">Loading...</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <!-- SIDEBAR -->
+            <aside class="sidebar">
+                <div class="menu-section">
+                    <p class="menu-title">Data Management</p>
+                    <button class="menu-btn active" onclick="switchSection('dashboard')">
+                        <span class="menu-icon">📊</span> Dashboard
+                    </button>
+                    <button class="menu-btn" onclick="switchSection('load')">
+                        <span class="menu-icon">📥</span> Load Dataset
+                    </button>
+                    <button class="menu-btn" onclick="switchSection('events')">
+                        <span class="menu-icon">📋</span> View Events
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <p class="menu-title">Investigation</p>
+                    <button class="menu-btn" onclick="switchSection('suspicious')">
+                        <span class="menu-icon">⚠️</span> Suspicious Activities
+                    </button>
+                    <button class="menu-btn" onclick="switchSection('timeline')">
+                        <span class="menu-icon">📈</span> Event Timeline
+                    </button>
+                    <button class="menu-btn" onclick="switchSection('graph')">
+                        <span class="menu-icon">🔗</span> Evidence Graph
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <p class="menu-title">Search Algorithms</p>
+                    <button class="menu-btn" onclick="switchSection('search')">
+                        <span class="menu-icon">🔎</span> Run Search
+                    </button>
+                    <button class="menu-btn" onclick="switchSection('compare')">
+                        <span class="menu-icon">⚙️</span> Compare Algorithms
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <p class="menu-title">Reports</p>
+                    <button class="menu-btn" onclick="switchSection('report')">
+                        <span class="menu-icon">📄</span> Investigation Report
+                    </button>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main class="content">
+                <!-- DASHBOARD -->
+                <section class="content-section active" id="dashboard">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">📊 Investigation Dashboard</h2>
+                                <p class="panel-subtitle">Overview of forensic analysis</p>
+                            </div>
+                        </div>
+
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalEventsCount">0</div>
+                                <div class="stat-label">Total Events</div>
+                            </div>
+                            <div class="stat-card alt-1">
+                                <div class="stat-value" id="suspiciousCount">0</div>
+                                <div class="stat-label">Suspicious Activities</div>
+                            </div>
+                            <div class="stat-card alt-2">
+                                <div class="stat-value" id="graphEdgesCount">0</div>
+                                <div class="stat-label">Evidence Connections</div>
+                            </div>
+                            <div class="stat-card alt-3">
+                                <div class="stat-value" id="deviceCount">0</div>
+                                <div class="stat-label">Unique Devices</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h3 class="panel-title">Quick Start</h3>
+                                <p class="panel-subtitle">Begin your investigation</p>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="switchSection('load')">
+                            📥 Load Sample Dataset
+                        </button>
+                    </div>
+                </section>
+
+                <!-- LOAD DATASET -->
+                <section class="content-section" id="load">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">📥 Load Evidence Dataset</h2>
+                                <p class="panel-subtitle">Import forensic records from CSV files</p>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <span>ℹ️</span>
+                            <span>This system loads a pre-configured sample forensic dataset containing login events, file access, USB connections, and network transfers.</span>
+                        </div>
+
+                        <button class="btn btn-primary btn-large" onclick="loadDataset()" style="width: 100%; margin-bottom: 20px; height: 50px; font-size: 16px;">
+                            <span id="loadBtnText">📥 Load Sample Dataset</span>
+                        </button>
+
+                        <div id="datasetResult"></div>
+                    </div>
+                </section>
+
+                <!-- VIEW EVENTS -->
+                <section class="content-section" id="events">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">📋 Evidence Records</h2>
+                                <p class="panel-subtitle">All loaded forensic events</p>
+                            </div>
+                            <button class="btn btn-outline btn-small" onclick="getEvents()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Event ID</th>
+                                        <th>User</th>
+                                        <th>Device</th>
+                                        <th>Activity</th>
+                                        <th>Timestamp</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eventsTableBody">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: #9ca3af;">No events loaded. Load dataset first.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SUSPICIOUS ACTIVITIES -->
+                <section class="content-section" id="suspicious">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">⚠️ Suspicious Activity Detection</h2>
+                                <p class="panel-subtitle">Flagged events requiring investigation</p>
+                            </div>
+                            <button class="btn btn-outline btn-small" onclick="getSuspiciousActivities()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <div id="suspiciousContent"></div>
+                    </div>
+                </section>
+
+                <!-- EVENT TIMELINE -->
+                <section class="content-section" id="timeline">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">📈 Event Timeline</h2>
+                                <p class="panel-subtitle">Chronological sequence of forensic events</p>
+                            </div>
+                            <button class="btn btn-outline btn-small" onclick="getTimeline()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <div id="timelineContent"></div>
+                    </div>
+                </section>
+
+                <!-- EVIDENCE GRAPH -->
+                <section class="content-section" id="graph">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">🔗 Evidence Relationship Graph</h2>
+                                <p class="panel-subtitle">Visual representation of evidence connections</p>
+                            </div>
+                            <button class="btn btn-outline btn-small" onclick="getGraphData()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <div style="background: var(--light); padding: 20px; border-radius: 8px; margin-bottom: 16px;">
+                            <canvas id="graphCanvas" width="800" height="400" style="width: 100%; border: 1px solid var(--border); border-radius: 8px;"></canvas>
+                        </div>
+
+                        <div id="graphStatsContent"></div>
+                    </div>
+                </section>
+
+                <!-- SEARCH ALGORITHMS -->
+                <section class="content-section" id="search">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">🔎 Search for Evidence Paths</h2>
+                                <p class="panel-subtitle">Find connections between events using AI algorithms</p>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label>Start Event</label>
+                                <select id="startEventSelect">
+                                    <option value="">Select starting event...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Goal Event</label>
+                                <select id="goalEventSelect">
+                                    <option value="">Select goal event...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Algorithm</label>
+                                <select id="algorithmSelect">
+                                    <option value="bfs">Breadth-First Search (BFS)</option>
+                                    <option value="dfs">Depth-First Search (DFS)</option>
+                                    <option value="ucs">Uniform Cost Search (UCS)</option>
+                                </select>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="runSearch()" style="width: 100%;">
+                                🔍 Search Evidence Path
+                            </button>
+                        </div>
+
+                        <div id="searchResult"></div>
+                    </div>
+                </section>
+
+                <!-- COMPARE ALGORITHMS -->
+                <section class="content-section" id="compare">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">⚙️ Algorithm Comparison</h2>
+                                <p class="panel-subtitle">Compare BFS, DFS, and UCS performance metrics</p>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label>Start Event</label>
+                                <select id="compareStartSelect">
+                                    <option value="">Select starting event...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Goal Event</label>
+                                <select id="compareGoalSelect">
+                                    <option value="">Select goal event...</option>
+                                </select>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="compareAlgorithms()" style="width: 100%;">
+                                ⚙️ Run Comparison
+                            </button>
+                        </div>
+
+                        <div id="comparisonResult"></div>
+                    </div>
+                </section>
+
+                <!-- INVESTIGATION REPORT -->
+                <section class="content-section" id="report">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title">📄 Investigation Report</h2>
+                                <p class="panel-subtitle">Complete forensic analysis summary</p>
+                            </div>
+                            <button class="btn btn-success btn-small" onclick="generateReport()">
+                                📄 Generate Report
+                            </button>
+                        </div>
+
+                        <div id="reportContent"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+       const API_URL = 'http://172.26.243.89:5000/api';
+
+
+
+        // ================================================================
+        // UI NAVIGATION
+        // ================================================================
+
+        function switchSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            // Hide all menu buttons active state
+            document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Mark button as active
+            event.target.classList.add('active');
+
+            // Auto-load data for certain sections
+            if (sectionId === 'events') getEvents();
+            if (sectionId === 'suspicious') getSuspiciousActivities();
+            if (sectionId === 'timeline') getTimeline();
+            if (sectionId === 'graph') getGraphData();
+        }
+
+        // ================================================================
+        // DATA LOADING
+        // ================================================================
+
+        async function loadDataset() {
+            const btn = document.getElementById('loadBtnText');
+            const resultDiv = document.getElementById('datasetResult');
+            btn.innerHTML = '<span class="spinner"></span> Loading...';
+
+            try {
+                const response = await fetch(`${API_URL}/load-dataset`, { method: 'POST' });
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <span>✅</span>
+                        <div>
+                            <strong>Dataset Loaded Successfully!</strong>
+                            <p>Total Events: ${data.total_events} | Connections: ${data.total_edges}</p>
+                            <p style="font-size: 12px; margin-top: 8px;">Hash: ${data.dataset_hash.substring(0, 32)}...</p>
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; margin-top: 16px;">
+                        <thead>
+                            <tr>
+                                <th>Event ID</th>
+                                <th>User</th>
+                                <th>Device</th>
+                                <th>Activity</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.events.map(e => `
+                                <tr>
+                                    <td>${e.id}</td>
+                                    <td>${e.user}</td>
+                                    <td>${e.device}</td>
+                                    <td>${e.activity}</td>
+                                    <td>${e.suspicious ? '<span class="badge badge-danger">Suspicious</span>' : '<span class="badge badge-success">Normal</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+                updateDashboard();
+                populateEventSelects();
+                btn.innerHTML = '✅ Dataset Loaded';
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
+                btn.innerHTML = '❌ Error Loading';
+            }
+        }
+
+        async function getEvents() {
+            try {
+                const response = await fetch(`${API_URL}/events`);
+                const data = await response.json();
+
+                const tbody = document.getElementById('eventsTableBody');
+                if (data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No events loaded</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.events.map(e => `
+                    <tr>
+                        <td><strong>${e.id}</strong></td>
+                        <td>${e.user}</td>
+                        <td>${e.device}</td>
+                        <td>${e.activity}</td>
+                        <td>${new Date(e.timestamp).toLocaleTimeString()}</td>
+                        <td>${e.suspicious ? '<span class="badge badge-danger">⚠️ Suspicious</span>' : '<span class="badge badge-success">✓ Normal</span>'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error fetching events:', error);
+            }
+        }
+
+        // ================================================================
+        // SUSPICIOUS ACTIVITY DETECTION
+        // ================================================================
+
+        async function getSuspiciousActivities() {
+            try {
+                const response = await fetch(`${API_URL}/suspicious-activities`);
+                const data = await response.json();
+
+                const contentDiv = document.getElementById('suspiciousContent');
+
+                if (data.suspicious_count === 0) {
+                    contentDiv.innerHTML = '<div class="alert alert-success"><span>✅</span> No suspicious activities detected.</div>';
+                    return;
+                }
+
+                contentDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <span>⚠️</span>
+                        <strong>${data.suspicious_count} suspicious activities detected</strong>
+                    </div>
+
+                    <div class="table-wrapper" style="margin-top: 16px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Event ID</th>
+                                    <th>User</th>
+                                    <th>Device</th>
+                                    <th>Activity</th>
+                                    <th>Flags</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.suspicious_events.map(e => `
+                                    <tr>
+                                        <td><strong>${e.id}</strong></td>
+                                        <td>${e.user}</td>
+                                        <td>${e.device}</td>
+                                        <td>${e.activity}</td>
+                                        <td>${e.flags.map(f => `<span class="badge badge-danger">${f}</span>`).join(' ')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error fetching suspicious activities:', error);
+            }
+        }
+
+        // ================================================================
+        // TIMELINE
+        // ================================================================
+
+        async function getTimeline() {
+            try {
+                const response = await fetch(`${API_URL}/timeline`);
+                const data = await response.json();
+
+                const contentDiv = document.getElementById('timelineContent');
+
+                contentDiv.innerHTML = `
+                    <div class="timeline">
+                        ${data.timeline.map(e => `
+                            <div class="timeline-item ${e.suspicious ? 'suspicious' : ''}">
+                                <div class="timeline-content ${e.suspicious ? 'suspicious' : ''}">
+                                    <div class="timeline-time">${e.time_formatted}</div>
+                                    <div class="timeline-text">
+                                        <strong>${e.user}</strong> - ${e.activity}
+                                        <br><small style="color: #9ca3af;">Device: ${e.device}</small>
+                                        ${e.flags.length > 0 ? `<br>${e.flags.map(f => `<span class="badge badge-danger" style="font-size: 11px;">${f}</span>`).join(' ')}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error fetching timeline:', error);
+            }
+        }
+
+        // ================================================================
+        // GRAPH VISUALIZATION
+        // ================================================================
+
+        async function getGraphData() {
+            try {
+                const response = await fetch(`${API_URL}/graph`);
+                const data = await response.json();
+
+                drawGraph(data.nodes, data.edges);
+
+                const statsDiv = document.getElementById('graphStatsContent');
+                statsDiv.innerHTML = `
+                    <div class="stats-grid" style="margin-top: 16px;">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.nodes.length}</div>
+                            <div class="stat-label">Nodes (Events)</div>
+                        </div>
+                        <div class="stat-card alt-1">
+                            <div class="stat-value">${data.edges.length}</div>
+                            <div class="stat-label">Edges (Connections)</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error fetching graph:', error);
+            }
+        }
+
+        function drawGraph(nodes, edges) {
+            const canvas = document.getElementById('graphCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+
+            // Calculate node positions using circular layout
+            const nodePositions = {};
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) / 2 - 40;
+
+            nodes.forEach((node, index) => {
+                const angle = (index / nodes.length) * 2 * Math.PI;
+                nodePositions[node.id] = {
+                    x: centerX + radius * Math.cos(angle),
+                    y: centerY + radius * Math.sin(angle)
+                };
+            });
+
+            // Draw edges
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 2;
+            edges.forEach(edge => {
+                const from = nodePositions[edge.source];
+                const to = nodePositions[edge.target];
+                if (from && to) {
+                    ctx.beginPath();
+                    ctx.moveTo(from.x, from.y);
+                    ctx.lineTo(to.x, to.y);
+                    ctx.stroke();
+
+                    // Draw arrow
+                    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+                    const arrowSize = 8;
+                    ctx.fillStyle = '#e5e7eb';
+                    ctx.beginPath();
+                    ctx.moveTo(to.x, to.y);
+                    ctx.lineTo(to.x - arrowSize * Math.cos(angle - Math.PI / 6), to.y - arrowSize * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(to.x - arrowSize * Math.cos(angle + Math.PI / 6), to.y - arrowSize * Math.sin(angle + Math.PI / 6));
+                    ctx.fill();
+                }
+            });
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const pos = nodePositions[node.id];
+                if (!pos) return;
+
+                // Node circle
+                ctx.fillStyle = node.suspicious ? '#ef4444' : '#6366f1';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 20, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Node label
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.id, pos.x, pos.y);
+            });
+        }
+
+        // ================================================================
+        // SEARCH ALGORITHMS
+        // ================================================================
+
+        async function runSearch() {
+            const startId = document.getElementById('startEventSelect').value;
+            const goalId = document.getElementById('goalEventSelect').value;
+            const algorithm = document.getElementById('algorithmSelect').value;
+
+            if (!startId || !goalId) {
+                alert('Please select both start and goal events');
+                return;
+            }
+
+            const resultDiv = document.getElementById('searchResult');
+            resultDiv.innerHTML = '<div class="loading"><span class="spinner"></span> Searching...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_id: startId, goal_id: goalId, algorithm: algorithm })
+                });
+
+                const data = await response.json();
+
+                let html = `
+                    <div class="alert ${data.found ? 'alert-success' : 'alert-warning'}">
+                        <span>${data.found ? '✅' : '⚠️'}</span>
+                        <strong>${data.found ? 'Path Found!' : 'No Path Found'}</strong>
+                    </div>
+
+                    <div class="comparison-grid">
+                        <div class="comparison-card">
+                            <h3>📊 Metrics</h3>
+                            <div class="metric">
+                                <span class="metric-label">Algorithm</span>
+                                <span class="metric-value">${algorithm.toUpperCase()}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Path Length</span>
+                                <span class="metric-value">${data.path_length}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Total Cost</span>
+                                <span class="metric-value">${data.total_cost}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Explored Nodes</span>
+                                <span class="metric-value">${data.explored_nodes}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Execution Time</span>
+                                <span class="metric-value">${data.execution_time_ms}ms</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                if (data.found && data.path_details.length > 0) {
+                    html += `
+                        <div style="margin-top: 20px;">
+                            <h3 style="margin-bottom: 12px;">📍 Evidence Path</h3>
+                            <div class="table-wrapper">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Step</th>
+                                            <th>Event ID</th>
+                                            <th>User</th>
+                                            <th>Activity</th>
+                                            <th>Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.path_details.map((e, i) => `
+                                            <tr>
+                                                <td>${i + 1}</td>
+                                                <td><strong>${e.id}</strong></td>
+                                                <td>${e.user}</td>
+                                                <td>${e.activity}</td>
+                                                <td>${new Date(e.timestamp).toLocaleTimeString()}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
+            }
+        }
+
+        // ================================================================
+        // ALGORITHM COMPARISON
+        // ================================================================
+
+        async function compareAlgorithms() {
+            const startId = document.getElementById('compareStartSelect').value;
+            const goalId = document.getElementById('compareGoalSelect').value;
+
+            if (!startId || !goalId) {
+                alert('Please select both start and goal events');
+                return;
+            }
+
+            const resultDiv = document.getElementById('comparisonResult');
+            resultDiv.innerHTML = '<div class="loading"><span class="spinner"></span> Running comparison...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/compare-algorithms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_id: startId, goal_id: goalId })
+                });
+
+                const data = await response.json();
+                const comp = data.comparison;
+
+                resultDiv.innerHTML = `
+                    <div class="comparison-grid">
+                        <div class="comparison-card">
+                            <h3>🔄 BFS (Breadth-First Search)</h3>
+                            <div class="metric">
+                                <span class="metric-label">Status</span>
+                                <span class="metric-value">${comp.bfs.found ? '✅ Found' : '❌ Not Found'}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Path Length</span>
+                                <span class="metric-value">${comp.bfs.path_length}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Total Cost</span>
+                                <span class="metric-value">${comp.bfs.total_cost}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Explored Nodes</span>
+                                <span class="metric-value">${comp.bfs.explored_nodes}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Time</span>
+                                <span class="metric-value">${comp.bfs.execution_time_ms}ms</span>
+                            </div>
+                        </div>
+
+                        <div class="comparison-card">
+                            <h3>🔍 DFS (Depth-First Search)</h3>
+                            <div class="metric">
+                                <span class="metric-label">Status</span>
+                                <span class="metric-value">${comp.dfs.found ? '✅ Found' : '❌ Not Found'}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Path Length</span>
+                                <span class="metric-value">${comp.dfs.path_length}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Total Cost</span>
+                                <span class="metric-value">${comp.dfs.total_cost}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Explored Nodes</span>
+                                <span class="metric-value">${comp.dfs.explored_nodes}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Time</span>
+                                <span class="metric-value">${comp.dfs.execution_time_ms}ms</span>
+                            </div>
+                        </div>
+
+                        <div class="comparison-card">
+                            <h3>💎 UCS (Uniform Cost Search)</h3>
+                            <div class="metric">
+                                <span class="metric-label">Status</span>
+                                <span class="metric-value">${comp.ucs.found ? '✅ Found' : '❌ Not Found'}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Path Length</span>
+                                <span class="metric-value">${comp.ucs.path_length}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Total Cost</span>
+                                <span class="metric-value">${comp.ucs.total_cost}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Explored Nodes</span>
+                                <span class="metric-value">${comp.ucs.explored_nodes}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Time</span>
+                                <span class="metric-value">${comp.ucs.execution_time_ms}ms</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; padding: 16px; background: var(--light); border-radius: 8px;">
+                        <h4 style="margin-bottom: 12px;">📈 Analysis</h4>
+                        <ul style="list-style: none;">
+                            <li>✓ <strong>Fastest:</strong> ${comp.bfs.execution_time_ms < comp.dfs.execution_time_ms && comp.bfs.execution_time_ms < comp.ucs.execution_time_ms ? 'BFS' : comp.dfs.execution_time_ms < comp.ucs.execution_time_ms ? 'DFS' : 'UCS'}</li>
+                            <li>✓ <strong>Most Efficient Path:</strong> ${comp.bfs.total_cost < comp.dfs.total_cost && comp.bfs.total_cost < comp.ucs.total_cost ? 'BFS' : comp.dfs.total_cost < comp.ucs.total_cost ? 'DFS' : 'UCS'}</li>
+                            <li>✓ <strong>Fewest Nodes:</strong> ${comp.bfs.explored_nodes < comp.dfs.explored_nodes && comp.bfs.explored_nodes < comp.ucs.explored_nodes ? 'BFS' : comp.dfs.explored_nodes < comp.ucs.explored_nodes ? 'DFS' : 'UCS'}</li>
+                        </ul>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
+            }
+        }
+
+        // ================================================================
+        // REPORT GENERATION
+        // ================================================================
+
+        async function generateReport() {
+            const resultDiv = document.getElementById('reportContent');
+            resultDiv.innerHTML = '<div class="loading"><span class="spinner"></span> Generating report...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/generate-report`);
+                const data = await response.json();
+                const report = data.report;
+
+                resultDiv.innerHTML = `
+                    <div style="background: var(--light); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 12px;">📋 Report Summary</h3>
+                        <div class="metric" style="padding: 8px 0;">
+                            <span class="metric-label">Generated</span>
+                            <span class="metric-value">${new Date(report.generated).toLocaleString()}</span>
+                        </div>
+                        <div class="metric" style="padding: 8px 0;">
+                            <span class="metric-label">Total Events Analyzed</span>
+                            <span class="metric-value">${report.total_events}</span>
+                        </div>
+                        <div class="metric" style="padding: 8px 0;">
+                            <span class="metric-label">Suspicious Events</span>
+                            <span class="metric-value">${report.suspicious_events}</span>
+                        </div>
+                        <div class="metric" style="padding: 8px 0;">
+                            <span class="metric-label">Evidence Connections</span>
+                            <span class="metric-value">${report.total_graph_edges}</span>
+                        </div>
+                        <div class="metric" style="padding: 8px 0;">
+                            <span class="metric-label">Dataset Hash</span>
+                            <span class="metric-value" style="font-family: monospace; font-size: 11px;">${report.dataset_integrity_hash.substring(0, 32)}...</span>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-bottom: 12px;">🔍 All Evidence Events</h3>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Event ID</th>
+                                    <th>User</th>
+                                    <th>Device</th>
+                                    <th>Activity</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.events.map(e => `
+                                    <tr>
+                                        <td><strong>${e.id}</strong></td>
+                                        <td>${e.user}</td>
+                                        <td>${e.device}</td>
+                                        <td>${e.activity}</td>
+                                        <td>${e.suspicious ? '<span class="badge badge-danger">⚠️ Suspicious</span>' : '<span class="badge badge-success">✓ Normal</span>'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
+            }
+        }
+
+        // ================================================================
+        // DASHBOARD & HELPERS
+        // ================================================================
+
+        async function updateDashboard() {
+            try {
+                const eventsResponse = await fetch(`${API_URL}/events`);
+                const eventsData = await eventsResponse.json();
+
+                const suspiciousResponse = await fetch(`${API_URL}/suspicious-activities`);
+                const suspiciousData = await suspiciousResponse.json();
+
+                const graphResponse = await fetch(`${API_URL}/graph`);
+                const graphData = await graphResponse.json();
+
+                const devices = new Set(eventsData.events.map(e => e.device)).size;
+
+                document.getElementById('totalEventsCount').textContent = eventsData.events.length;
+                document.getElementById('suspiciousCount').textContent = suspiciousData.suspicious_count;
+                document.getElementById('graphEdgesCount').textContent = graphData.edges.length;
+                document.getElementById('deviceCount').textContent = devices;
+                document.getElementById('statusIndicator').classList.add('active');
+                document.getElementById('statusText').textContent = 'System Ready';
+            } catch (error) {
+                console.error('Error updating dashboard:', error);
+            }
+        }
+
+        function populateEventSelects() {
+            fetch(`${API_URL}/events`)
+                .then(r => r.json())
+                .then(data => {
+                    const options = data.events.map(e => `<option value="${e.id}">${e.id} - ${e.activity}</option>`).join('');
+
+                    document.getElementById('startEventSelect').innerHTML = '<option value="">Select starting event...</option>' + options;
+                    document.getElementById('goalEventSelect').innerHTML = '<option value="">Select goal event...</option>' + options;
+                    document.getElementById('compareStartSelect').innerHTML = '<option value="">Select starting event...</option>' + options;
+                    document.getElementById('compareGoalSelect').innerHTML = '<option value="">Select goal event...</option>' + options;
+                })
+                .catch(error => console.error('Error populating selects:', error));
+        }
+
+        // ================================================================
+        // INITIAL LOAD
+        // ================================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('statusIndicator').classList.remove('active');
+            document.getElementById('statusText').textContent = 'Ready to Load Data';
+        });
+    </script>
+</body>
+</html>
