@@ -1,4 +1,7 @@
 {
   "buildCommand": "pip install -r requirements.txt",
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "env": {
+    "PYTHONUNBUFFERED": "1"
+  }
 }
