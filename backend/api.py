@@ -106,3 +106,112 @@ def load_dataset():
 @app.route('/api/events', methods=['GET'])
 def get_events():
     return jsonify({'events': [{'id': e.event_id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.timestamp.isoformat(), 'suspicious': e.suspicious, 'flags': e.flags} for e in all_events]})
+
+def dfs_search(start_id, goal_id, graph, visited=None, path=None, cost=0):
+    if visited is None:
+        visited = set()
+    if path is None:
+        path = []
+
+    if start_id in visited:
+        return None
+
+    visited.add(start_id)
+    path.append(start_id)
+
+    if start_id == goal_id:
+        return {'path': path, 'cost': cost, 'nodes_explored': len(visited)}
+
+    if start_id in graph.edges:
+        for next_id, edge_cost in graph.edges[start_id]:
+            result = dfs_search(next_id, goal_id, graph, visited.copy(), path.copy(), cost + edge_cost)
+            if result:
+                return result
+
+    return None
+
+def dijkstra_search(start_id, goal_id, graph):
+    import heapq
+    distances = {node_id: float('inf') for node_id in graph.nodes}
+    distances[start_id] = 0
+    previous = {node_id: None for node_id in graph.nodes}
+    pq = [(0, start_id)]
+    visited = set()
+    nodes_explored = 0
+
+    while pq:
+        current_cost, current_id = heapq.heappop(pq)
+
+        if current_id in visited:
+            continue
+
+        visited.add(current_id)
+        nodes_explored += 1
+
+        if current_id == goal_id:
+            path = []
+            node = goal_id
+            while node is not None:
+                path.append(node)
+                node = previous[node]
+            return {'path': path[::-1], 'cost': current_cost, 'nodes_explored': nodes_explored}
+
+        if current_id in graph.edges:
+            for next_id, edge_cost in graph.edges[current_id]:
+                new_cost = current_cost + edge_cost
+                if new_cost < distances[next_id]:
+                    distances[next_id] = new_cost
+                    previous[next_id] = current_id
+                    heapq.heappush(pq, (new_cost, next_id))
+
+    return None
+
+@app.route('/api/search-path', methods=['POST'])
+def search_path():
+    data = request.json
+    start_id = data.get('start_id')
+    goal_id = data.get('goal_id')
+    algorithm = data.get('algorithm', 'DFS')
+
+    if not start_id or not goal_id:
+        return jsonify({'error': 'Missing start_id or goal_id'}), 400
+
+    if start_id not in graph.nodes or goal_id not in graph.nodes:
+        return jsonify({'error': 'Invalid event ID'}), 400
+
+    import time
+    start_time = time.time()
+
+    if algorithm == 'DFS':
+        result = dfs_search(start_id, goal_id, graph)
+    elif algorithm == 'Dijkstra':
+        result = dijkstra_search(start_id, goal_id, graph)
+    else:
+        return jsonify({'error': 'Unknown algorithm'}), 400
+
+    execution_time = (time.time() - start_time) * 1000
+
+    if result:
+        path_details = [{'id': event_id, 'user': graph.nodes[event_id].user, 'activity': graph.nodes[event_id].activity, 'timestamp': graph.nodes[event_id].timestamp.isoformat()} for event_id in result['path']]
+        return jsonify({
+            'success': True,
+            'path_found': True,
+            'path': result['path'],
+            'path_details': path_details,
+            'path_length': len(result['path']),
+            'total_cost': round(result['cost'], 2),
+            'nodes_explored': result['nodes_explored'],
+            'execution_time': round(execution_time, 2),
+            'algorithm': algorithm
+        })
+    else:
+        return jsonify({
+            'success': True,
+            'path_found': False,
+            'path': [],
+            'path_length': 0,
+            'total_cost': 0,
+            'nodes_explored': 0,
+            'execution_time': round(execution_time, 2),
+            'algorithm': algorithm
+        })
