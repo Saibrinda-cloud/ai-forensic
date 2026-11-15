@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from datetime import datetime
 from collections import defaultdict
 import hashlib
 import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -46,6 +47,13 @@ class EvidenceGraph:
 
 graph = EvidenceGraph()
 all_events = []
+
+@app.route('/', methods=['GET'])
+def serve_index():
+    try:
+        return send_file(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'index.html'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
 
 @app.route('/api/health', methods=['GET'])
 def health():
