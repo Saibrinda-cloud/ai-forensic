@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, deque
 import hashlib
 import json
 import os
+import time
+import heapq
 
 app = Flask(__name__)
 CORS(app)
@@ -45,6 +47,140 @@ class EvidenceGraph:
             relationship_penalty -= 1.5
         return base_cost + time_penalty + relationship_penalty
 
+    def get_neighbors(self, node_id):
+        return self.edges.get(node_id, [])
+
+def calculate_path_cost(graph, path):
+    cost = 0
+    for i in range(len(path) - 1):
+        for neighbor_id, edge_cost in graph.get_neighbors(path[i]):
+            if neighbor_id == path[i + 1]:
+                cost += edge_cost
+                break
+    return cost
+
+class SearchAlgorithms:
+    @staticmethod
+    def bfs(graph, start_id, goal_id):
+        start_time = time.time()
+        visited = set()
+        queue = deque([(start_id, [start_id])])
+        explored_nodes = 0
+
+        while queue:
+            current_id, path = queue.popleft()
+            explored_nodes += 1
+
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            if current_id == goal_id:
+                execution_time = time.time() - start_time
+                return {
+                    'found': True,
+                    'path': path,
+                    'path_length': len(path) - 1,
+                    'total_cost': calculate_path_cost(graph, path),
+                    'explored_nodes': explored_nodes,
+                    'execution_time': execution_time
+                }
+
+            for neighbor_id, _ in graph.get_neighbors(current_id):
+                if neighbor_id not in visited:
+                    queue.append((neighbor_id, path + [neighbor_id]))
+
+        execution_time = time.time() - start_time
+        return {
+            'found': False,
+            'path': [],
+            'path_length': 0,
+            'total_cost': 0,
+            'explored_nodes': explored_nodes,
+            'execution_time': execution_time
+        }
+
+    @staticmethod
+    def dfs(graph, start_id, goal_id):
+        start_time = time.time()
+        visited = set()
+        stack = [(start_id, [start_id])]
+        explored_nodes = 0
+
+        while stack:
+            current_id, path = stack.pop()
+            explored_nodes += 1
+
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            if current_id == goal_id:
+                execution_time = time.time() - start_time
+                return {
+                    'found': True,
+                    'path': path,
+                    'path_length': len(path) - 1,
+                    'total_cost': calculate_path_cost(graph, path),
+                    'explored_nodes': explored_nodes,
+                    'execution_time': execution_time
+                }
+
+            for neighbor_id, _ in graph.get_neighbors(current_id):
+                if neighbor_id not in visited:
+                    stack.append((neighbor_id, path + [neighbor_id]))
+
+        execution_time = time.time() - start_time
+        return {
+            'found': False,
+            'path': [],
+            'path_length': 0,
+            'total_cost': 0,
+            'explored_nodes': explored_nodes,
+            'execution_time': execution_time
+        }
+
+    @staticmethod
+    def ucs(graph, start_id, goal_id):
+        start_time = time.time()
+        visited = set()
+        pq = [(0, start_id, [start_id])]
+        explored_nodes = 0
+
+        while pq:
+            current_cost, current_id, path = heapq.heappop(pq)
+            explored_nodes += 1
+
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            if current_id == goal_id:
+                execution_time = time.time() - start_time
+                return {
+                    'found': True,
+                    'path': path,
+                    'path_length': len(path) - 1,
+                    'total_cost': current_cost,
+                    'explored_nodes': explored_nodes,
+                    'execution_time': execution_time
+                }
+
+            for neighbor_id, edge_cost in graph.get_neighbors(current_id):
+                if neighbor_id not in visited:
+                    new_cost = current_cost + edge_cost
+                    heapq.heappush(pq, (new_cost, neighbor_id, path + [neighbor_id]))
+
+        execution_time = time.time() - start_time
+        return {
+            'found': False,
+            'path': [],
+            'path_length': 0,
+            'total_cost': 0,
+            'explored_nodes': explored_nodes,
+            'execution_time': execution_time
+        }
+
 graph = EvidenceGraph()
 all_events = []
 
@@ -81,6 +217,19 @@ def load_dataset():
     for record in dataset:
         timestamp = datetime.strptime(record['time'], '%Y-%m-%d %H:%M:%S')
         event = ForensicEvent(record['id'], record['user'], record['device'], record['activity'], timestamp, {'size_mb': record['size_mb']})
+        
+        # Flag suspicious activities
+        if 'USB' in record['activity'] or 'copy' in record['activity'].lower():
+            event.suspicious = True
+            event.flags.append('Potential data exfiltration')
+        if record['time'].split()[1] < '09:00:00' or record['time'].split()[1] > '18:00:00':
+            event.suspicious = True
+            if 'Login' in record['activity']:
+                event.flags.append('Unusual login time')
+        if record['size_mb'] > 100:
+            event.suspicious = True
+            event.flags.append(f'Large transfer: {record["size_mb"]} MB')
+        
         graph.add_event(event)
         all_events.append(event)
 
@@ -107,111 +256,82 @@ def load_dataset():
 def get_events():
     return jsonify({'events': [{'id': e.event_id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.timestamp.isoformat(), 'suspicious': e.suspicious, 'flags': e.flags} for e in all_events]})
 
-def dfs_search(start_id, goal_id, graph, visited=None, path=None, cost=0):
-    if visited is None:
-        visited = set()
-    if path is None:
-        path = []
-
-    if start_id in visited:
-        return None
-
-    visited.add(start_id)
-    path.append(start_id)
-
-    if start_id == goal_id:
-        return {'path': path, 'cost': cost, 'nodes_explored': len(visited)}
-
-    if start_id in graph.edges:
-        for next_id, edge_cost in graph.edges[start_id]:
-            result = dfs_search(next_id, goal_id, graph, visited.copy(), path.copy(), cost + edge_cost)
-            if result:
-                return result
-
-    return None
-
-def dijkstra_search(start_id, goal_id, graph):
-    import heapq
-    distances = {node_id: float('inf') for node_id in graph.nodes}
-    distances[start_id] = 0
-    previous = {node_id: None for node_id in graph.nodes}
-    pq = [(0, start_id)]
-    visited = set()
-    nodes_explored = 0
-
-    while pq:
-        current_cost, current_id = heapq.heappop(pq)
-
-        if current_id in visited:
-            continue
-
-        visited.add(current_id)
-        nodes_explored += 1
-
-        if current_id == goal_id:
-            path = []
-            node = goal_id
-            while node is not None:
-                path.append(node)
-                node = previous[node]
-            return {'path': path[::-1], 'cost': current_cost, 'nodes_explored': nodes_explored}
-
-        if current_id in graph.edges:
-            for next_id, edge_cost in graph.edges[current_id]:
-                new_cost = current_cost + edge_cost
-                if new_cost < distances[next_id]:
-                    distances[next_id] = new_cost
-                    previous[next_id] = current_id
-                    heapq.heappush(pq, (new_cost, next_id))
-
-    return None
-
-@app.route('/api/search-path', methods=['POST'])
-def search_path():
+@app.route('/api/search', methods=['POST'])
+def search():
     data = request.json
     start_id = data.get('start_id')
     goal_id = data.get('goal_id')
-    algorithm = data.get('algorithm', 'DFS')
+    algorithm = data.get('algorithm', 'bfs').lower()
 
-    if not start_id or not goal_id:
-        return jsonify({'error': 'Missing start_id or goal_id'}), 400
+    if not graph.nodes:
+        return jsonify({'error': 'Dataset not loaded'}), 400
 
     if start_id not in graph.nodes or goal_id not in graph.nodes:
         return jsonify({'error': 'Invalid event ID'}), 400
 
-    import time
-    start_time = time.time()
-
-    if algorithm == 'DFS':
-        result = dfs_search(start_id, goal_id, graph)
-    elif algorithm == 'Dijkstra':
-        result = dijkstra_search(start_id, goal_id, graph)
+    if algorithm == 'bfs':
+        result = SearchAlgorithms.bfs(graph, start_id, goal_id)
+    elif algorithm == 'dfs':
+        result = SearchAlgorithms.dfs(graph, start_id, goal_id)
+    elif algorithm == 'ucs':
+        result = SearchAlgorithms.ucs(graph, start_id, goal_id)
     else:
         return jsonify({'error': 'Unknown algorithm'}), 400
 
-    execution_time = (time.time() - start_time) * 1000
+    path_details = []
+    if result['found']:
+        for event_id in result['path']:
+            event = graph.nodes[event_id]
+            path_details.append({'id': event.event_id, 'user': event.user, 'device': event.device, 'activity': event.activity, 'timestamp': event.timestamp.isoformat()})
 
-    if result:
-        path_details = [{'id': event_id, 'user': graph.nodes[event_id].user, 'activity': graph.nodes[event_id].activity, 'timestamp': graph.nodes[event_id].timestamp.isoformat()} for event_id in result['path']]
-        return jsonify({
-            'success': True,
-            'path_found': True,
-            'path': result['path'],
-            'path_details': path_details,
-            'path_length': len(result['path']),
-            'total_cost': round(result['cost'], 2),
-            'nodes_explored': result['nodes_explored'],
-            'execution_time': round(execution_time, 2),
-            'algorithm': algorithm
-        })
-    else:
-        return jsonify({
-            'success': True,
-            'path_found': False,
-            'path': [],
-            'path_length': 0,
-            'total_cost': 0,
-            'nodes_explored': 0,
-            'execution_time': round(execution_time, 2),
-            'algorithm': algorithm
-        })
+    return jsonify({
+        'algorithm': algorithm,
+        'found': result['found'],
+        'path': result['path'],
+        'path_details': path_details,
+        'path_length': result['path_length'],
+        'total_cost': round(result['total_cost'], 2),
+        'explored_nodes': result['explored_nodes'],
+        'execution_time_ms': round(result['execution_time'] * 1000, 2)
+    })
+
+@app.route('/api/compare-algorithms', methods=['POST'])
+def compare_algorithms():
+    data = request.json
+    start_id = data.get('start_id')
+    goal_id = data.get('goal_id')
+
+    if not graph.nodes:
+        return jsonify({'error': 'Dataset not loaded'}), 400
+
+    results = {
+        'bfs': SearchAlgorithms.bfs(graph, start_id, goal_id),
+        'dfs': SearchAlgorithms.dfs(graph, start_id, goal_id),
+        'ucs': SearchAlgorithms.ucs(graph, start_id, goal_id)
+    }
+
+    return jsonify({
+        'comparison': {
+            'bfs': {
+                'found': results['bfs']['found'],
+                'path_length': results['bfs']['path_length'],
+                'total_cost': round(results['bfs']['total_cost'], 2),
+                'explored_nodes': results['bfs']['explored_nodes'],
+                'execution_time_ms': round(results['bfs']['execution_time'] * 1000, 2)
+            },
+            'dfs': {
+                'found': results['dfs']['found'],
+                'path_length': results['dfs']['path_length'],
+                'total_cost': round(results['dfs']['total_cost'], 2),
+                'explored_nodes': results['dfs']['explored_nodes'],
+                'execution_time_ms': round(results['dfs']['execution_time'] * 1000, 2)
+            },
+            'ucs': {
+                'found': results['ucs']['found'],
+                'path_length': results['ucs']['path_length'],
+                'total_cost': round(results['ucs']['total_cost'], 2),
+                'explored_nodes': results['ucs']['explored_nodes'],
+                'execution_time_ms': round(results['ucs']['execution_time'] * 1000, 2)
+            }
+        }
+    })
