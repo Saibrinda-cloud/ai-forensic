@@ -143,7 +143,6 @@
         tr:hover { background: #f9f9f9; }
         .suspicious { color: #ef4444; font-weight: 600; }
         .safe { color: #48bb78; font-weight: 600; }
-        canvas { border: 1px solid #ddd; border-radius: 8px; width: 100%; height: 400px; }
     </style>
 </head>
 <body>
@@ -255,36 +254,48 @@
     </div>
 
     <script>
-        const API_URL = 'https://ai-forensic-brown.vercel.app/api';
+        const API_URL = window.location.origin + '/api';
         let allEvents = [];
 
         async function loadDataset() {
             try {
-                const response = await fetch(`${API_URL}/load-dataset`, { method: 'POST' });
+                const response = await fetch(API_URL + '/load-dataset', { method: 'POST' });
                 const data = await response.json();
-                allEvents = data.events;
                 
-                document.getElementById('totalEvents').textContent = data.total_events;
-                document.getElementById('suspiciousCount').textContent = data.events.filter(e => e.suspicious).length;
-                document.getElementById('totalEdges').textContent = data.total_edges;
-                document.getElementById('uniqueDevices').textContent = new Set(data.events.map(e => e.device)).size;
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
                 
-                displayEvents(data.events);
-                populateSelects(data.events);
+                allEvents = data.events || [];
+                
+                document.getElementById('totalEvents').textContent = data.total_events || 0;
+                document.getElementById('suspiciousCount').textContent = allEvents.filter(e => e.suspicious).length;
+                document.getElementById('totalEdges').textContent = data.total_edges || 0;
+                document.getElementById('uniqueDevices').textContent = new Set(allEvents.map(e => e.device)).size;
+                
+                displayEvents(allEvents);
+                populateSelects(allEvents);
             } catch (error) {
+                console.error('Error:', error);
                 alert('Error loading dataset: ' + error.message);
             }
         }
 
         function displayEvents(events) {
+            if (!events || events.length === 0) {
+                document.getElementById('eventsTable').innerHTML = '<p>No events loaded</p>';
+                return;
+            }
+            
             let html = '<table><thead><tr><th>Event ID</th><th>User</th><th>Device</th><th>Activity</th><th>Timestamp</th><th>Status</th></tr></thead><tbody>';
             events.forEach(e => {
                 html += `<tr>
-                    <td>${e.id}</td>
-                    <td>${e.user}</td>
-                    <td>${e.device}</td>
-                    <td>${e.activity}</td>
-                    <td>${new Date(e.timestamp).toLocaleString()}</td>
+                    <td>${e.id || ''}</td>
+                    <td>${e.user || ''}</td>
+                    <td>${e.device || ''}</td>
+                    <td>${e.activity || ''}</td>
+                    <td>${e.timestamp ? new Date(e.timestamp).toLocaleString() : ''}</td>
                     <td><span class="${e.suspicious ? 'suspicious' : 'safe'}">${e.suspicious ? '⚠️ Suspicious' : '✅ Safe'}</span></td>
                 </tr>`;
             });
@@ -293,6 +304,8 @@
         }
 
         function populateSelects(events) {
+            if (!events || events.length === 0) return;
+            
             const options = events.map(e => `<option value="${e.id}">${e.id} - ${e.activity}</option>`).join('');
             document.getElementById('startEventSelect').innerHTML = '<option value="">Select starting event...</option>' + options;
             document.getElementById('goalEventSelect').innerHTML = '<option value="">Select goal event...</option>' + options;
@@ -314,20 +327,27 @@
             resultDiv.innerHTML = '<div class="loading"><span class="spinner"></span> Searching...</div>';
 
             try {
-                const response = await fetch(`${API_URL}/search`, {
+                const response = await fetch(API_URL + '/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_id: startId, goal_id: goalId, algorithm: algorithm })
                 });
 
                 const data = await response.json();
+                console.log('Search response:', data);
 
-                if (!data.path_details) data.path_details = [];
+                if (data.error) {
+                    resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${data.error}</div>`;
+                    return;
+                }
+
+                const pathDetails = data.path_details || [];
+                const found = data.found || false;
 
                 let html = `
-                    <div class="alert ${data.found ? 'alert-success' : 'alert-warning'}">
-                        <span>${data.found ? '✅' : '⚠️'}</span>
-                        <strong>${data.found ? 'Path Found!' : 'No Path Found'}</strong>
+                    <div class="alert ${found ? 'alert-success' : 'alert-warning'}">
+                        <span>${found ? '✅' : '⚠️'}</span>
+                        <strong>${found ? 'Path Found!' : 'No Path Found'}</strong>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
@@ -335,40 +355,41 @@
                             <h3>📊 Metrics</h3>
                             <div class="metric">
                                 <span class="metric-label">Algorithm</span>
-                                <span class="metric-value">${data.algorithm.toUpperCase()}</span>
+                                <span class="metric-value">${(data.algorithm || 'Unknown').toUpperCase()}</span>
                             </div>
                             <div class="metric">
                                 <span class="metric-label">Path Length</span>
-                                <span class="metric-value">${data.path_length}</span>
+                                <span class="metric-value">${data.path_length || 0}</span>
                             </div>
                             <div class="metric">
                                 <span class="metric-label">Total Cost</span>
-                                <span class="metric-value">${data.total_cost}</span>
+                                <span class="metric-value">${data.total_cost || 0}</span>
                             </div>
                             <div class="metric">
                                 <span class="metric-label">Explored Nodes</span>
-                                <span class="metric-value">${data.explored_nodes}</span>
+                                <span class="metric-value">${data.explored_nodes || 0}</span>
                             </div>
                             <div class="metric">
                                 <span class="metric-label">Execution Time</span>
-                                <span class="metric-value">${data.execution_time_ms}ms</span>
+                                <span class="metric-value">${data.execution_time_ms || 0}ms</span>
                             </div>
                         </div>
-                        ${data.found && data.path_details.length > 0 ? `
+                        ${found && pathDetails && pathDetails.length > 0 ? `
                         <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                             <h3>🔗 Evidence Path</h3>
-                            ${data.path_details.map(e => `
+                            ${pathDetails.map(e => `
                                 <div style="padding: 8px 0; border-bottom: 1px solid #ddd;">
-                                    <strong>${e.id}</strong> - ${e.activity}
-                                    <br><small style="color: #888;">${e.user}@${e.device}</small>
+                                    <strong>${e.id || ''}</strong> - ${e.activity || ''}
+                                    <br><small style="color: #888;">${e.user || ''}@${e.device || ''}</small>
                                 </div>
                             `).join('')}
                         </div>
-                        ` : ''}
+                        ` : '<div style="background: #f9f9f9; padding: 15px; border-radius: 8px; color: #999;">No path details available</div>'}
                     </div>
                 `;
                 resultDiv.innerHTML = html;
             } catch (error) {
+                console.error('Search error:', error);
                 resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
             }
         }
@@ -386,44 +407,52 @@
             resultDiv.innerHTML = '<div class="loading"><span class="spinner"></span> Running comparison...</div>';
 
             try {
-                const response = await fetch(`${API_URL}/compare-algorithms`, {
+                const response = await fetch(API_URL + '/compare-algorithms', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_id: startId, goal_id: goalId })
                 });
 
                 const data = await response.json();
-                const comp = data.comparison;
+                console.log('Comparison response:', data);
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${data.error}</div>`;
+                    return;
+                }
+
+                const comp = data.comparison || {};
 
                 resultDiv.innerHTML = `
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                         <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                             <h3>🔄 BFS</h3>
-                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${comp.bfs.found ? '✅ Found' : '❌ Not Found'}</span></div>
-                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.bfs.path_length}</span></div>
-                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.bfs.total_cost}</span></div>
-                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.bfs.explored_nodes}</span></div>
-                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.bfs.execution_time_ms}ms</span></div>
+                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${(comp.bfs?.found) ? '✅ Found' : '❌ Not Found'}</span></div>
+                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.bfs?.path_length || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.bfs?.total_cost || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.bfs?.explored_nodes || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.bfs?.execution_time_ms || 0}ms</span></div>
                         </div>
                         <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                             <h3>🌳 DFS</h3>
-                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${comp.dfs.found ? '✅ Found' : '❌ Not Found'}</span></div>
-                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.dfs.path_length}</span></div>
-                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.dfs.total_cost}</span></div>
-                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.dfs.explored_nodes}</span></div>
-                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.dfs.execution_time_ms}ms</span></div>
+                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${(comp.dfs?.found) ? '✅ Found' : '❌ Not Found'}</span></div>
+                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.dfs?.path_length || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.dfs?.total_cost || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.dfs?.explored_nodes || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.dfs?.execution_time_ms || 0}ms</span></div>
                         </div>
                         <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                             <h3>⚖️ UCS</h3>
-                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${comp.ucs.found ? '✅ Found' : '❌ Not Found'}</span></div>
-                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.ucs.path_length}</span></div>
-                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.ucs.total_cost}</span></div>
-                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.ucs.explored_nodes}</span></div>
-                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.ucs.execution_time_ms}ms</span></div>
+                            <div class="metric"><span class="metric-label">Status</span><span class="metric-value">${(comp.ucs?.found) ? '✅ Found' : '❌ Not Found'}</span></div>
+                            <div class="metric"><span class="metric-label">Path Length</span><span class="metric-value">${comp.ucs?.path_length || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Cost</span><span class="metric-value">${comp.ucs?.total_cost || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Nodes</span><span class="metric-value">${comp.ucs?.explored_nodes || 0}</span></div>
+                            <div class="metric"><span class="metric-label">Time</span><span class="metric-value">${comp.ucs?.execution_time_ms || 0}ms</span></div>
                         </div>
                     </div>
                 `;
             } catch (error) {
+                console.error('Comparison error:', error);
                 resultDiv.innerHTML = `<div class="alert alert-error"><span>❌</span> Error: ${error.message}</div>`;
             }
         }
