@@ -1,219 +1,182 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
 from collections import defaultdict, deque
-import hashlib
-import json
-import os
 import time
 import heapq
 
 app = Flask(__name__)
 CORS(app)
 
-class ForensicEvent:
-    def __init__(self, event_id, user, device, activity, timestamp, details=None):
-        self.event_id = event_id
+class Event:
+    def __init__(self, eid, user, device, activity, ts):
+        self.id = eid
         self.user = user
         self.device = device
         self.activity = activity
-        self.timestamp = timestamp
-        self.details = details or {}
+        self.ts = ts
         self.suspicious = False
         self.flags = []
 
-class EvidenceGraph:
+class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = defaultdict(list)
+    
+    def add_node(self, e):
+        self.nodes[e.id] = e
+    
+    def add_edge(self, f, t, c):
+        if f in self.nodes and t in self.nodes:
+            self.edges[f].append((t, c))
+    
+    def neighbors(self, n):
+        return self.edges.get(n, [])
 
-    def add_event(self, event):
-        self.nodes[event.event_id] = event
-
-    def add_edge(self, from_id, to_id, cost):
-        if from_id in self.nodes and to_id in self.nodes:
-            self.edges[from_id].append((to_id, cost))
-
-    def get_neighbors(self, node_id):
-        return self.edges.get(node_id, [])
-
-class SearchAlgorithms:
-    @staticmethod
-    def bfs(graph, start_id, goal_id):
-        start_time = time.time()
-        visited = set()
-        queue = deque([(start_id, [start_id])])
-        explored = 0
-
-        while queue:
-            node, path = queue.popleft()
-            explored += 1
-            if node in visited:
-                continue
-            visited.add(node)
-            if node == goal_id:
-                return {'found': True, 'path': path, 'path_length': len(path) - 1, 'total_cost': len(path) - 1, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-            for neighbor, _ in graph.get_neighbors(node):
-                if neighbor not in visited:
-                    queue.append((neighbor, path + [neighbor]))
-        return {'found': False, 'path': [], 'path_length': 0, 'total_cost': 0, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-
-    @staticmethod
-    def dfs(graph, start_id, goal_id):
-        start_time = time.time()
-        visited = set()
-        stack = [(start_id, [start_id])]
-        explored = 0
-
-        while stack:
-            node, path = stack.pop()
-            explored += 1
-            if node in visited:
-                continue
-            visited.add(node)
-            if node == goal_id:
-                return {'found': True, 'path': path, 'path_length': len(path) - 1, 'total_cost': len(path) - 1, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-            for neighbor, _ in graph.get_neighbors(node):
-                if neighbor not in visited:
-                    stack.append((neighbor, path + [neighbor]))
-        return {'found': False, 'path': [], 'path_length': 0, 'total_cost': 0, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-
-    @staticmethod
-    def ucs(graph, start_id, goal_id):
-        start_time = time.time()
-        visited = set()
-        pq = [(0, start_id, [start_id])]
-        explored = 0
-
-        while pq:
-            cost, node, path = heapq.heappop(pq)
-            explored += 1
-            if node in visited:
-                continue
-            visited.add(node)
-            if node == goal_id:
-                return {'found': True, 'path': path, 'path_length': len(path) - 1, 'total_cost': cost, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-            for neighbor, edge_cost in graph.get_neighbors(node):
-                if neighbor not in visited:
-                    heapq.heappush(pq, (cost + edge_cost, neighbor, path + [neighbor]))
-        return {'found': False, 'path': [], 'path_length': 0, 'total_cost': 0, 'explored_nodes': explored, 'execution_time': time.time() - start_time}
-
-graph = EvidenceGraph()
-all_events = []
+g = Graph()
+events = []
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok'})
+    return {'status': 'ok'}
 
 @app.route('/api/load-dataset', methods=['POST'])
-def load_dataset():
-    global graph, all_events
-    graph = EvidenceGraph()
-    all_events = []
-
-    dataset = [
-        {'id': 'E001', 'user': 'alex', 'device': 'PC01', 'activity': 'Login', 'time': '2024-01-15 08:30:00', 'size_mb': 0},
-        {'id': 'E002', 'user': 'alex', 'device': 'PC01', 'activity': 'Accessed confidential file', 'time': '2024-01-15 08:45:00', 'size_mb': 0},
-        {'id': 'E003', 'user': 'alex', 'device': 'PC01', 'activity': 'USB Device Connected', 'time': '2024-01-15 09:00:00', 'size_mb': 0},
-        {'id': 'E004', 'user': 'alex', 'device': 'PC01', 'activity': 'File copy operation', 'time': '2024-01-15 09:15:00', 'size_mb': 250},
-        {'id': 'E005', 'user': 'alex', 'device': 'PC01', 'activity': 'Network transfer', 'time': '2024-01-15 09:30:00', 'size_mb': 245},
-        {'id': 'E006', 'user': 'sam', 'device': 'PC02', 'activity': 'Login', 'time': '2024-01-15 07:00:00', 'size_mb': 0},
-        {'id': 'E007', 'user': 'sam', 'device': 'PC02', 'activity': 'Email sent', 'time': '2024-01-15 07:30:00', 'size_mb': 5},
-        {'id': 'E008', 'user': 'bob', 'device': 'PC03', 'activity': 'Login', 'time': '2024-01-15 22:00:00', 'size_mb': 0},
-        {'id': 'E009', 'user': 'bob', 'device': 'PC03', 'activity': 'USB Device Connected', 'time': '2024-01-15 22:15:00', 'size_mb': 0},
-        {'id': 'E010', 'user': 'bob', 'device': 'PC03', 'activity': 'File copy operation', 'time': '2024-01-15 22:30:00', 'size_mb': 180},
+def load():
+    global g, events
+    g = Graph()
+    events = []
+    
+    data = [
+        ('E001', 'alex', 'PC01', 'Login', '2024-01-15 08:30:00'),
+        ('E002', 'alex', 'PC01', 'Accessed confidential file', '2024-01-15 08:45:00'),
+        ('E003', 'alex', 'PC01', 'USB Device Connected', '2024-01-15 09:00:00'),
+        ('E004', 'alex', 'PC01', 'File copy operation', '2024-01-15 09:15:00'),
+        ('E005', 'alex', 'PC01', 'Network transfer', '2024-01-15 09:30:00'),
+        ('E006', 'sam', 'PC02', 'Login', '2024-01-15 07:00:00'),
+        ('E007', 'sam', 'PC02', 'Email sent', '2024-01-15 07:30:00'),
+        ('E008', 'bob', 'PC03', 'Login', '2024-01-15 22:00:00'),
+        ('E009', 'bob', 'PC03', 'USB Device Connected', '2024-01-15 22:15:00'),
+        ('E010', 'bob', 'PC03', 'File copy operation', '2024-01-15 22:30:00'),
     ]
+    
+    for eid, user, device, activity, ts_str in data:
+        e = Event(eid, user, device, activity, datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S'))
+        if 'usb' in activity.lower():
+            e.suspicious = True
+            e.flags.append('USB')
+        if 'copy' in activity.lower():
+            e.suspicious = True
+            e.flags.append('Copy')
+        g.add_node(e)
+        events.append(e)
+    
+    events.sort(key=lambda x: x.ts)
+    for i, e1 in enumerate(events):
+        for e2 in events[i+1:]:
+            if (e1.user == e2.user or e1.device == e2.device):
+                g.add_edge(e1.id, e2.id, 1.0)
+    
+    return {'success': True, 'total_events': len(events), 'total_edges': sum(len(v) for v in g.edges.values()), 'events': [{'id': e.id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.ts.isoformat(), 'suspicious': e.suspicious, 'flags': e.flags} for e in events]}
 
-    for rec in dataset:
-        ts = datetime.strptime(rec['time'], '%Y-%m-%d %H:%M:%S')
-        evt = ForensicEvent(rec['id'], rec['user'], rec['device'], rec['activity'], ts, {'size_mb': rec['size_mb']})
-        if 'usb' in rec['activity'].lower():
-            evt.flags.append('Removable device')
-            evt.suspicious = True
-        if 'copy' in rec['activity'].lower():
-            evt.flags.append('File copy')
-            evt.suspicious = True
-        if rec['size_mb'] > 100:
-            evt.flags.append(f'Large: {rec["size_mb"]} MB')
-            evt.suspicious = True
-        graph.add_event(evt)
-        all_events.append(evt)
+def bfs_search(start, goal):
+    t0 = time.time()
+    visited = set()
+    q = deque([(start, [start])])
+    explored = 0
+    while q:
+        n, p = q.popleft()
+        explored += 1
+        if n in visited:
+            continue
+        visited.add(n)
+        if n == goal:
+            return {'found': True, 'path': p, 'explored': explored, 'time': time.time() - t0}
+        for nb, _ in g.neighbors(n):
+            if nb not in visited:
+                q.append((nb, p + [nb]))
+    return {'found': False, 'path': [], 'explored': explored, 'time': time.time() - t0}
 
-    sorted_events = sorted(all_events, key=lambda e: e.timestamp)
-    for i, from_evt in enumerate(sorted_events):
-        for to_evt in sorted_events[i+1:]:
-            td = (to_evt.timestamp - from_evt.timestamp).total_seconds() / 3600
-            if td <= 24 and (from_evt.user == to_evt.user or from_evt.device == to_evt.device):
-                cost = 1 + td * 0.1
-                if from_evt.user == to_evt.user:
-                    cost -= 2
-                if from_evt.device == to_evt.device:
-                    cost -= 1.5
-                graph.add_edge(from_evt.event_id, to_evt.event_id, max(0.1, cost))
+def dfs_search(start, goal):
+    t0 = time.time()
+    visited = set()
+    s = [(start, [start])]
+    explored = 0
+    while s:
+        n, p = s.pop()
+        explored += 1
+        if n in visited:
+            continue
+        visited.add(n)
+        if n == goal:
+            return {'found': True, 'path': p, 'explored': explored, 'time': time.time() - t0}
+        for nb, _ in g.neighbors(n):
+            if nb not in visited:
+                s.append((nb, p + [nb]))
+    return {'found': False, 'path': [], 'explored': explored, 'time': time.time() - t0}
 
-    return jsonify({
-        'success': True,
-        'total_events': len(all_events),
-        'total_edges': sum(len(edges) for edges in graph.edges.values()),
-        'events': [{'id': e.event_id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.timestamp.isoformat(), 'suspicious': e.suspicious, 'flags': e.flags} for e in all_events]
-    })
+def ucs_search(start, goal):
+    t0 = time.time()
+    visited = set()
+    pq = [(0, start, [start])]
+    explored = 0
+    while pq:
+        cost, n, p = heapq.heappop(pq)
+        explored += 1
+        if n in visited:
+            continue
+        visited.add(n)
+        if n == goal:
+            return {'found': True, 'path': p, 'cost': cost, 'explored': explored, 'time': time.time() - t0}
+        for nb, ec in g.neighbors(n):
+            if nb not in visited:
+                heapq.heappush(pq, (cost + ec, nb, p + [nb]))
+    return {'found': False, 'path': [], 'cost': 0, 'explored': explored, 'time': time.time() - t0}
 
 @app.route('/api/search', methods=['POST'])
 def search():
     req = request.json
     start = req.get('start_id')
     goal = req.get('goal_id')
-    algo = req.get('algorithm', 'bfs').lower()
-
-    if not graph.nodes:
-        return jsonify({'error': 'Load dataset first'}), 400
-    if start not in graph.nodes or goal not in graph.nodes:
-        return jsonify({'error': 'Invalid event'}), 400
-
+    algo = req.get('algorithm', 'bfs')
+    
+    if not g.nodes:
+        return {'error': 'No data'}
+    if start not in g.nodes or goal not in g.nodes:
+        return {'error': 'Bad IDs'}
+    
     if algo == 'bfs':
-        res = SearchAlgorithms.bfs(graph, start, goal)
+        r = bfs_search(start, goal)
     elif algo == 'dfs':
-        res = SearchAlgorithms.dfs(graph, start, goal)
-    elif algo == 'ucs':
-        res = SearchAlgorithms.ucs(graph, start, goal)
+        r = dfs_search(start, goal)
     else:
-        return jsonify({'error': 'Unknown algorithm'}), 400
-
-    path_details = []
-    for eid in res['path']:
-        if eid in graph.nodes:
-            e = graph.nodes[eid]
-            path_details.append({'id': e.event_id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.timestamp.isoformat()})
-
-    return jsonify({
-        'algorithm': algo,
-        'found': res['found'],
-        'path': res['path'],
-        'path_details': path_details,
-        'path_length': res['path_length'],
-        'total_cost': round(res['total_cost'], 2),
-        'explored_nodes': res['explored_nodes'],
-        'execution_time_ms': round(res['execution_time'] * 1000, 2)
-    })
+        r = ucs_search(start, goal)
+    
+    details = []
+    for eid in r['path']:
+        if eid in g.nodes:
+            e = g.nodes[eid]
+            details.append({'id': e.id, 'user': e.user, 'device': e.device, 'activity': e.activity, 'timestamp': e.ts.isoformat()})
+    
+    return {'algorithm': algo, 'found': r['found'], 'path': r['path'], 'path_details': details, 'path_length': len(r['path']) - 1, 'total_cost': r.get('cost', len(r['path']) - 1), 'explored_nodes': r['explored'], 'execution_time_ms': round(r['time'] * 1000, 2)}
 
 @app.route('/api/compare-algorithms', methods=['POST'])
 def compare():
     req = request.json
     start = req.get('start_id')
     goal = req.get('goal_id')
-
-    if not graph.nodes:
-        return jsonify({'error': 'Load dataset first'}), 400
-
-    r1 = SearchAlgorithms.bfs(graph, start, goal)
-    r2 = SearchAlgorithms.dfs(graph, start, goal)
-    r3 = SearchAlgorithms.ucs(graph, start, goal)
-
-    return jsonify({'comparison': {
-        'bfs': {'found': r1['found'], 'path_length': r1['path_length'], 'total_cost': round(r1['total_cost'], 2), 'explored_nodes': r1['explored_nodes'], 'execution_time_ms': round(r1['execution_time'] * 1000, 2)},
-        'dfs': {'found': r2['found'], 'path_length': r2['path_length'], 'total_cost': round(r2['total_cost'], 2), 'explored_nodes': r2['explored_nodes'], 'execution_time_ms': round(r2['execution_time'] * 1000, 2)},
-        'ucs': {'found': r3['found'], 'path_length': r3['path_length'], 'total_cost': round(r3['total_cost'], 2), 'explored_nodes': r3['explored_nodes'], 'execution_time_ms': round(r3['execution_time'] * 1000, 2)}
-    }})
+    
+    if not g.nodes:
+        return {'error': 'No data'}
+    
+    rb = bfs_search(start, goal)
+    rd = dfs_search(start, goal)
+    ru = ucs_search(start, goal)
+    
+    return {'comparison': {
+        'bfs': {'found': rb['found'], 'path_length': len(rb['path']) - 1, 'total_cost': len(rb['path']) - 1, 'explored_nodes': rb['explored'], 'execution_time_ms': round(rb['time'] * 1000, 2)},
+        'dfs': {'found': rd['found'], 'path_length': len(rd['path']) - 1, 'total_cost': len(rd['path']) - 1, 'explored_nodes': rd['explored'], 'execution_time_ms': round(rd['time'] * 1000, 2)},
+        'ucs': {'found': ru['found'], 'path_length': len(ru['path']) - 1, 'total_cost': ru.get('cost', len(ru['path']) - 1), 'explored_nodes': ru['explored'], 'execution_time_ms': round(ru['time'] * 1000, 2)}
+    }}
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
