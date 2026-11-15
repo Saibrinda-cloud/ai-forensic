@@ -50,50 +50,6 @@ class EvidenceGraph:
     def get_neighbors(self, node_id):
         return self.edges.get(node_id, [])
 
-class SuspiciousActivityDetector:
-    @staticmethod
-    def detect_unusual_login(event):
-        if 'login' in event.activity.lower():
-            hour = event.timestamp.hour
-            if hour < 9 or hour > 17:
-                event.flags.append("Unusual login time")
-                event.suspicious = True
-                return True
-        return False
-
-    @staticmethod
-    def detect_usb_connection(event):
-        if 'usb' in event.activity.lower() or 'removable' in event.activity.lower():
-            event.flags.append("Removable device connection")
-            event.suspicious = True
-            return True
-        return False
-
-    @staticmethod
-    def detect_file_copy(event):
-        if 'copy' in event.activity.lower() or 'copy' in str(event.details).lower():
-            event.flags.append("File copy operation")
-            event.suspicious = True
-            return True
-        return False
-
-    @staticmethod
-    def detect_large_transfer(event):
-        if event.details.get('size_mb', 0) > 100:
-            event.flags.append(f"Large transfer: {event.details.get('size_mb')} MB")
-            event.suspicious = True
-            return True
-        return False
-
-    @staticmethod
-    def analyze_all_events(events):
-        for event in events:
-            SuspiciousActivityDetector.detect_unusual_login(event)
-            SuspiciousActivityDetector.detect_usb_connection(event)
-            SuspiciousActivityDetector.detect_file_copy(event)
-            SuspiciousActivityDetector.detect_large_transfer(event)
-        return events
-
 class SearchAlgorithms:
     @staticmethod
     def bfs(graph, start_id, goal_id):
@@ -112,7 +68,6 @@ class SearchAlgorithms:
 
             if current_id == goal_id:
                 execution_time = time.time() - start_time
-                cost = sum(1 for _ in path) - 1
                 return {'found': True, 'path': path, 'path_length': len(path) - 1, 'total_cost': float(len(path) - 1), 'explored_nodes': explored_nodes, 'execution_time': execution_time}
 
             for neighbor_id, _ in graph.get_neighbors(current_id):
@@ -208,6 +163,21 @@ def load_dataset():
     for record in dataset:
         timestamp = datetime.strptime(record['time'], '%Y-%m-%d %H:%M:%S')
         event = ForensicEvent(record['id'], record['user'], record['device'], record['activity'], timestamp, {'size_mb': record['size_mb']})
+        
+        if 'usb' in record['activity'].lower():
+            event.flags.append('Removable device connection')
+            event.suspicious = True
+        if 'copy' in record['activity'].lower():
+            event.flags.append('File copy operation')
+            event.suspicious = True
+        if record['size_mb'] > 100:
+            event.flags.append(f'Large transfer: {record["size_mb"]} MB')
+            event.suspicious = True
+        if record['time'].split()[1] < '09:00:00' or record['time'].split()[1] > '17:00:00':
+            if 'login' in record['activity'].lower():
+                event.flags.append('Unusual login time')
+                event.suspicious = True
+        
         graph.add_event(event)
         all_events.append(event)
 
@@ -219,8 +189,6 @@ def load_dataset():
                 if from_event.user == to_event.user or from_event.device == to_event.device:
                     cost = graph.calculate_edge_cost(from_event, to_event)
                     graph.add_edge(from_event.event_id, to_event.event_id, cost)
-
-    all_events = SuspiciousActivityDetector.analyze_all_events(all_events)
 
     dataset_hash = hashlib.sha256(json.dumps(dataset, default=str).encode()).hexdigest()
 
@@ -255,12 +223,19 @@ def search():
         return jsonify({'error': 'Unknown algorithm'}), 400
 
     path_details = []
-    if result['found']:
+    if result['found'] and result['path']:
         for event_id in result['path']:
-            event = graph.nodes[event_id]
-            path_details.append({'id': event.event_id, 'user': event.user, 'device': event.device, 'activity': event.activity, 'timestamp': event.timestamp.isoformat()})
+            if event_id in graph.nodes:
+                event = graph.nodes[event_id]
+                path_details.append({
+                    'id': event.event_id,
+                    'user': event.user,
+                    'device': event.device,
+                    'activity': event.activity,
+                    'timestamp': event.timestamp.isoformat()
+                })
 
-    return jsonify({
+    response = {
         'algorithm': algorithm,
         'found': result['found'],
         'path': result['path'],
@@ -269,7 +244,9 @@ def search():
         'total_cost': round(result['total_cost'], 2),
         'explored_nodes': result['explored_nodes'],
         'execution_time_ms': round(result['execution_time'] * 1000, 2)
-    })
+    }
+    
+    return jsonify(response)
 
 @app.route('/api/compare-algorithms', methods=['POST'])
 def compare_algorithms():
