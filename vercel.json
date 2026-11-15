@@ -1,4 +1,18 @@
 {
-  "buildCommand": "pip install -r requirements.txt",
-  "outputDirectory": "."
+  "builds": [
+    {
+      "src": "backend/wsgi.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/wsgi.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
+  ]
 }
